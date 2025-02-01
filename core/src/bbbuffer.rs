@@ -1162,7 +1162,43 @@ mod atomic {
     }
 }
 
-#[cfg(not(feature = "thumbv6"))]
+#[cfg(feature = "no_atomics")]
+mod atomic {
+    use core::sync::atomic::{
+        AtomicBool, AtomicUsize,
+        Ordering::{self, Acquire, Release},
+    };
+    use critical_section::with;
+
+    #[inline(always)]
+    pub fn fetch_add(atomic: &AtomicUsize, val: usize, _order: Ordering) -> usize {
+        with(|_| {
+            let prev = atomic.load(Acquire);
+            atomic.store(prev.wrapping_add(val), Release);
+            prev
+        })
+    }
+
+    #[inline(always)]
+    pub fn fetch_sub(atomic: &AtomicUsize, val: usize, _order: Ordering) -> usize {
+        with(|_| {
+            let prev = atomic.load(Acquire);
+            atomic.store(prev.wrapping_sub(val), Release);
+            prev
+        })
+    }
+
+    #[inline(always)]
+    pub fn swap(atomic: &AtomicBool, val: bool, _order: Ordering) -> bool {
+        with(|_| {
+            let prev = atomic.load(Acquire);
+            atomic.store(val, Release);
+            prev
+        })
+    }
+}
+
+#[cfg(all(not(feature = "thumbv6"), not(feature = "no_atomics")))]
 mod atomic {
     use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
